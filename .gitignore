@@ -1,0 +1,22 @@
+# ===== .NET 编译产物（可重新生成，禁止提交） =====
+bin/
+obj/
+
+# ===== 发布产物（exe 可在本地用 dotnet publish 重新生成） =====
+发布/
+发布_需NET/
+
+# ===== WorkBuddy 本地记忆与运行产物 =====
+.workbuddy/
+
+# ===== IDE / 编辑器 =====
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# ===== 系统垃圾文件 =====
+Thumbs.db
+Desktop.ini
+ehthumbs.db
