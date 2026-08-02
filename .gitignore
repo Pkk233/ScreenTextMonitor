@@ -20,3 +20,10 @@ obj/
 Thumbs.db
 Desktop.ini
 ehthumbs.db
+
+# ===== 运行时日志 =====
+*.log
+debug.log
+
+# ===== 编辑器配置 =====
+.vscode/
