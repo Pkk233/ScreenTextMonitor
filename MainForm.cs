@@ -34,7 +34,9 @@ public sealed class MainForm : Form
     private FlatTextBox _entryFreq, _entryDur, _entryAudio, _entryTts;
     private RoundedButton _btnBrowse;
     private RoundedSwitch _swQq, _swSkipStatic, _swSmartSkip, _swPerfMode, _swAutoBackoff;
-    private FlatTextBox _entryQqUrl, _entryQqToken, _entryQqTarget, _entryQqMsg;
+    private FlatTextBox _entryQqUrl, _entryQqToken, _entryQqTarget, _entryQqMsg, _entryQqWs;
+    private RoundedSwitch _swQqCtrlLock;
+    private QqController _qqCtrl;
     private RoundedSlider _sliderInterval, _sliderDelay, _sliderSens;
     private Label _lblInterval, _lblDelay, _lblSens;
 
@@ -260,6 +262,18 @@ public sealed class MainForm : Form
         _entryQqTarget = NewEntry(150, "1414111902");
         cardQq.Body.Controls.Add(QqRow("目标QQ:", _entryQqTarget));
 
+        _entryQqWs = NewEntry(220, "ws://127.0.0.1:3001");
+        cardQq.Body.Controls.Add(QqRow("WS事件地址:", _entryQqWs));
+
+        var ctrlCmdHint = Lbl.Make("QQ 私聊发送「启动检测」启动监控、「关闭检测」关闭监控（任意好友均可控制）", Theme.TextSub);
+        ctrlCmdHint.Margin = new Padding(0, 2, 0, 2);
+        cardQq.Body.Controls.Add(ctrlCmdHint);
+
+        _swQqCtrlLock = new RoundedSwitch("仅允许授权QQ控制");
+        var rowCtrlLock = NewRow(28, Theme.Surface);
+        rowCtrlLock.Add(_swQqCtrlLock);
+        cardQq.Body.Controls.Add(rowCtrlLock);
+
         _entryQqMsg = NewEntry(0, "【警报】已检测到目标：{target}");
         var rowMsg = NewRow(34, Theme.Surface);
         rowMsg.Margin = new Padding(0, 2, 0, 2);
@@ -269,6 +283,10 @@ public sealed class MainForm : Form
         var qqHint = Lbl.Make("提示: {target} 会被替换为实际检测到的目标文字", Theme.TextSub);
         qqHint.Margin = new Padding(0, 2, 0, 2);
         cardQq.Body.Controls.Add(qqHint);
+
+        var ctrlApplyHint = Lbl.Make("启用或修改 QQ 控制后，重启软件即可生效", Theme.TextSub);
+        ctrlApplyHint.Margin = new Padding(0, 4, 0, 2);
+        cardQq.Body.Controls.Add(ctrlApplyHint);
 
         // ==================== 检测间隔 ====================
         var cardInterval = NewCard(setf, "检测间隔");
@@ -515,8 +533,11 @@ public sealed class MainForm : Form
             QqToken = _entryQqToken.Text.Trim(),
             QqTarget = _entryQqTarget.Text.Trim(),
             QqMsg = _entryQqMsg.Text.Trim(),
+            QqWsUrl = _entryQqWs.Text.Trim(),
+            QqCtrlAllowAny = !_swQqCtrlLock.Checked,
         };
         cfg.Save();
+        ApplyQqController();   // 保存即应用 QQ 控制（启用/停用/改地址均即时生效）
     }
 
     private void LoadConfig()
@@ -561,6 +582,8 @@ public sealed class MainForm : Form
         _entryQqToken.Text = cfg.QqToken;
         _entryQqTarget.Text = cfg.QqTarget;
         _entryQqMsg.Text = cfg.QqMsg;
+        _entryQqWs.Text = cfg.QqWsUrl;
+        _swQqCtrlLock.Checked = !cfg.QqCtrlAllowAny;
         _swQq.Checked = cfg.QqEnabled;
     }
 
@@ -1129,6 +1152,72 @@ public sealed class MainForm : Form
         Log("提示: 点击「框选区域」→ 鼠标拖拽选择屏幕区域 → 松开自动填入坐标", "blue");
         Log("提示: 目标文字多个用逗号分隔，如 收金,比例", "blue");
         _cpuTimer.Start();   // 启动 CPU 占用实时显示
+        ApplyQqController(); // 窗体显示后启动 QQ 远程控制监听
+    }
+
+    // ==================================================================
+    // QQ 远程控制
+    // ==================================================================
+
+    /// <summary>
+    /// 根据当前 UI 配置应用 QQ 控制：启用则（重建并）启动监听，停用则释放。
+    /// 幂等，可在 LoadConfig / SaveConfig 后调用。
+    /// </summary>
+    private void ApplyQqController()
+    {
+        if (!_swQq.Checked)
+        {
+            if (_qqCtrl is not null) { _qqCtrl.Dispose(); _qqCtrl = null; }
+            return;
+        }
+
+        // 每次都用最新控件值重建，保证改地址/Token/授权后保存即生效
+        _qqCtrl?.Dispose();
+        _qqCtrl = null;
+
+        string ws = _entryQqWs.Text.Trim();
+        if (string.IsNullOrEmpty(ws)) ws = "ws://127.0.0.1:3001";
+
+        _qqCtrl = new QqController(
+            ws,
+            _entryQqToken.Text.Trim(),
+            _entryQqTarget.Text.Trim(),
+            !_swQqCtrlLock.Checked,           // allowAny = 未勾选「仅允许授权」
+            userId => InvokeQqCommand(true, userId),
+            userId => InvokeQqCommand(false, userId),
+            msg => Log(msg));
+        _qqCtrl.Start();
+
+        if (!_swQqCtrlLock.Checked)
+            Log("⚠ 已开放任意私聊控制，存在被他人控制的风险", "red");
+    }
+
+    /// <summary>
+    /// QQ 控制命令回调：切回 UI 线程后执行启动/关闭，并回执给命令发送者。
+    /// </summary>
+    private void InvokeQqCommand(bool start, long senderId)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(new Action(() => InvokeQqCommand(start, senderId)));
+            return;
+        }
+
+        if (start) StartMonitor();
+        else StopMonitor();
+
+        // 回执给发送者（用 NapCat HTTP API 地址，与监听 WS 端口独立）
+        try
+        {
+            string httpUrl = _entryQqUrl.Text.Trim();
+            string token = _entryQqToken.Text.Trim();
+            string text = start ? "✅ 已启动监控" : "⏹ 已关闭监控";
+            _ = Task.Run(() => QqNotifier.SendPrivateAsync(httpUrl, token, senderId.ToString(), text, null));
+        }
+        catch (Exception ex)
+        {
+            Log($"QQ 控制回执失败: {ex.Message}", "red");
+        }
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -1143,6 +1232,8 @@ public sealed class MainForm : Form
         _monitoring = false;
         _cpuTimer?.Stop();
         SaveConfig();
+        _qqCtrl?.Dispose();   // 释放 QQ 控制 WebSocket（停止重连）
+        _qqCtrl = null;
         StopAndWait(2000);          // F1：等待监控线程退出，再释放引擎，避免并发 Dispose
         try { _engine?.Dispose(); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"引擎释放异常: {ex.Message}"); }  // F11

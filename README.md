@@ -15,6 +15,7 @@
   - `audio`：播放本地音频文件
   - `tts`：Windows 语音合成播报（System.Speech）
 - **QQ 通知**：通过 NapCat 的 HTTP API 发送私聊消息，并附上命中时的屏幕截图。
+- **QQ 远程控制**：通过 NapCat 的「正向 WebSocket 事件」接收 QQ 私聊消息，发「启动检测」启动监控、发「关闭检测」关闭监控（零额外依赖，.NET 8 自带 WebSocket）。
 - **性能优化**：
   - 静止画面跳过识别、微小变动跳过识别
   - 截图降采样识别（最长边 1000px）
@@ -70,6 +71,10 @@ dotnet run -c Debug
 ### 设置标签
 - **提醒方式**：蜂鸣 / 音频文件 / 语音播报（TTS），并可设频率、时长、播报文本。
 - **QQ 通知**：启用后填写 NapCat 地址、token、目标 QQ 号、消息模板（`{target}` 会被替换为命中的关键词）。
+- **QQ 远程控制**：在「QQ通知」卡片底部还有「WS事件地址」（NapCat 正向 WebSocket 事件地址，默认 `ws://127.0.0.1:3001`）和「仅允许授权QQ控制」开关。启用 QQ 通知后：
+  - 用 QQ 私聊发送 **「启动检测」** 启动监控、**「关闭检测」** 关闭监控（任意好友均可控制，也可勾选开关限定只有「目标QQ」能控制）。
+  - 命令执行后程序会回一条私聊给你确认。
+  - **启用或修改 QQ 控制后需重启软件才生效**（设置仅在关闭时保存）。
 - **检测间隔**：基础轮询间隔（秒）。
 - **性能优化**：静止跳过、智能跳过、性能模式、空闲降频、强制识别间隔、变化灵敏度等开关与滑块。
 - 滚轮可在标签内上下滚动内容。
@@ -100,6 +105,8 @@ dotnet run -c Debug
 | `qq_token` | string | NapCat access_token（可选） |
 | `qq_target` | string | 接收通知的 QQ 号 |
 | `qq_msg` | string | 消息模板，`{target}` 替换为命中关键词 |
+| `qq_ws_url` | string | NapCat 正向 WebSocket 事件地址，如 `ws://127.0.0.1:3001`（QQ 远程控制用，与 HTTP 通知地址是独立端口） |
+| `qq_ctrl_allow_any` | bool | 是否允许任意 QQ 私聊控制（`true`=任意好友可控制；`false`=仅 `qq_target` 可控制） |
 
 ---
 
@@ -150,7 +157,8 @@ dotnet publish -c Release -r win-x64 --self-contained false `
 │   ├── RegionSelectorForm.cs  # 全屏框选
 │   ├── ImagePreviewForm.cs    # 截图预览
 │   ├── Alerts.cs         # 蜂鸣 / 音频 / 语音
-│   └── QqNotifier.cs     # NapCat QQ 通知
+│   ├── QqNotifier.cs     # NapCat QQ 通知
+│   └── QqController.cs   # QQ 远程控制（NapCat 正向 WS 监听 + 命令解析）
 ├── models_ppocrv6/       # OCR 模型（det / cls / v6 rec / 字典）
 └── config.json
 ```

@@ -31,6 +31,8 @@ public class AppConfig
     public string QqToken { get; set; } = "";
     public string QqTarget { get; set; } = "1414111902";
     public string QqMsg { get; set; } = "【警报】已检测到目标：{target}";
+    public string QqWsUrl { get; set; } = "ws://127.0.0.1:3001";
+    public bool QqCtrlAllowAny { get; set; } = true;
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -73,6 +75,8 @@ public class AppConfig
             cfg.QqToken = Str(o, "qq_token", cfg.QqToken);
             cfg.QqTarget = Str(o, "qq_target", cfg.QqTarget);
             cfg.QqMsg = Str(o, "qq_msg", cfg.QqMsg);
+            cfg.QqWsUrl = Str(o, "qq_ws_url", cfg.QqWsUrl);
+            cfg.QqCtrlAllowAny = Bool(o, "qq_ctrl_allow_any", cfg.QqCtrlAllowAny);
         }
         catch (Exception ex)
         {
@@ -110,6 +114,8 @@ public class AppConfig
                 ["qq_token"] = QqToken,
                 ["qq_target"] = QqTarget,
                 ["qq_msg"] = QqMsg,
+                ["qq_ws_url"] = QqWsUrl,
+                ["qq_ctrl_allow_any"] = QqCtrlAllowAny,
             };
             File.WriteAllText(ConfigPath, o.ToJsonString(WriteOptions), System.Text.Encoding.UTF8);
         }
