@@ -9,7 +9,7 @@ public class LogBox : BufferedPanel
 
     public LogBox(int height = 170)
     {
-        BackColor = Theme.Border;   // 作为 1px 外边框
+        BackColor = Theme.BorderLo;   // 作为暗色外边框（内层 RichTextBox 提供终端深底）
         Padding = new Padding(1);
         Height = height;
 
@@ -18,9 +18,9 @@ public class LogBox : BufferedPanel
             Dock = DockStyle.Fill,
             BorderStyle = BorderStyle.None,
             ReadOnly = true,
-            BackColor = Theme.Surface,
+            BackColor = Theme.Terminal,
             ForeColor = Theme.Text,
-            Font = Theme.FontUi,
+            Font = Theme.FontMono,
             WordWrap = true,
             ScrollBars = RichTextBoxScrollBars.Vertical,
             DetectUrls = false,

@@ -16,23 +16,24 @@ internal enum QqCommand
     Stop
 }
 
-/// <summary>
-/// 命令解析与鉴权纯函数，便于独立验证（不依赖网络）。
-/// </summary>
-internal static class QqCommandParser
-{
     /// <summary>
-    /// 子串包含匹配：消息包含「启动检测」→ Start，包含「关闭检测」→ Stop，否则 None。
-    /// 用包含而非全等，容忍前后带字；四字连写日常误触概率极低。
+    /// 命令解析与鉴权纯函数，便于独立验证（不依赖网络）。
     /// </summary>
-    public static QqCommand Parse(string text)
+    internal static class QqCommandParser
     {
-        if (string.IsNullOrEmpty(text)) return QqCommand.None;
-        var t = text.Trim();
-        if (t.Contains("启动检测")) return QqCommand.Start;
-        if (t.Contains("关闭检测")) return QqCommand.Stop;
-        return QqCommand.None;
-    }
+        /// <summary>
+        /// 子串包含匹配：消息包含 startCmd → Start，包含 stopCmd → Stop，否则 None。
+        /// 用包含而非全等，容忍前后带字。startCmd / stopCmd 为空（空白）时该命令视为禁用，跳过匹配，
+        /// 避免空串 Contains("") 恒真导致任何消息都误触发。
+        /// </summary>
+        public static QqCommand Parse(string text, string startCmd, string stopCmd)
+        {
+            if (string.IsNullOrEmpty(text)) return QqCommand.None;
+            var t = text.Trim();
+            if (!string.IsNullOrWhiteSpace(startCmd) && t.Contains(startCmd)) return QqCommand.Start;
+            if (!string.IsNullOrWhiteSpace(stopCmd) && t.Contains(stopCmd)) return QqCommand.Stop;
+            return QqCommand.None;
+        }
 
     /// <summary>
     /// 鉴权：allowAny 为真时任意发送者通过；否则仅当发送者 QQ 号等于 authorizedQq 时通过。
@@ -54,6 +55,8 @@ public sealed class QqController : IDisposable
     private readonly string _token;
     private readonly string _authorizedQq;
     private readonly bool _allowAny;
+    private readonly string _cmdStart;
+    private readonly string _cmdStop;
     private readonly Action<long> _onStart;
     private readonly Action<long> _onStop;
     private readonly Action<string> _log;
@@ -64,12 +67,15 @@ public sealed class QqController : IDisposable
     private Task _loop;
 
     public QqController(string wsUrl, string token, string authorizedQq, bool allowAny,
+                        string cmdStart, string cmdStop,
                         Action<long> onStart, Action<long> onStop, Action<string> log)
     {
         _wsUrl = wsUrl ?? string.Empty;
         _token = token ?? string.Empty;
         _authorizedQq = authorizedQq ?? string.Empty;
         _allowAny = allowAny;
+        _cmdStart = cmdStart ?? string.Empty;
+        _cmdStop = cmdStop ?? string.Empty;
         _onStart = onStart;
         _onStop = onStop;
         _log = log ?? (_ => { });
@@ -195,7 +201,7 @@ public sealed class QqController : IDisposable
                 return;
             }
 
-            var cmd = QqCommandParser.Parse(msg);
+            var cmd = QqCommandParser.Parse(msg, _cmdStart, _cmdStop);
             if (cmd == QqCommand.Start)
             {
                 _log($"QQ 控制: 启动检测（来自 {userId}）");

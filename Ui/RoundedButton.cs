@@ -136,10 +136,56 @@ public class RoundedButton : Control
         Theme.Smooth(g);
         PaintBackgroundLikeParent(g);
 
-        var (bg, fg) = Colors();
-        Color border = _variant == ButtonVariant.Secondary ? Theme.Border : bg;
         var r = new RectangleF(1, 1, Width - 2, Height - 2);
-        Theme.DrawRoundRect(g, r, _radius, bg, border);
+        var (bg, fg) = Colors();
+
+        if (_variant == ButtonVariant.Primary)
+        {
+            if (!_enabledEx)
+            {
+                Theme.DrawRoundRect(g, r, _radius, Theme.Disabled, Theme.BorderLo);
+            }
+            else
+            {
+                Theme.DrawSoftShadow(g, r, _radius);
+                Theme.FillRoundRectGradient(g, r, _radius, Theme.AccentTop, Theme.AccentBot);
+                using (var penLo = new Pen(Theme.AccentEdge, 1))
+                    g.DrawPath(penLo, Theme.RoundRect(r, _radius));
+                var rIn = new RectangleF(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
+                using (var penHi = new Pen(Color.FromArgb(170, 255, 255, 255), 1))
+                    g.DrawPath(penHi, Theme.RoundRect(rIn, Math.Max(0f, _radius - 1)));
+                if (r.Width > 2 * _radius)
+                {
+                    using var penTop = new Pen(Color.FromArgb(110, 255, 255, 255), 1);
+                    g.DrawLine(penTop, r.X + _radius, r.Y + 1.5f, r.X + r.Width - _radius, r.Y + 1.5f);
+                }
+            }
+        }
+        else
+        {
+            Theme.FillRoundRectGradient(g, r, _radius, Theme.Surface, Theme.SurfaceBot);
+            using (var penLo = new Pen(Theme.BorderLo, 1))
+                g.DrawPath(penLo, Theme.RoundRect(r, _radius));
+            var rIn = new RectangleF(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
+            using (var penHi = new Pen(Theme.BorderHi, 1))
+                g.DrawPath(penHi, Theme.RoundRect(rIn, Math.Max(0f, _radius - 1)));
+            if (r.Width > 2 * _radius)
+            {
+                using var penTop = new Pen(Color.FromArgb(40, 255, 255, 255), 1);
+                g.DrawLine(penTop, r.X + _radius, r.Y + 1.5f, r.X + r.Width - _radius, r.Y + 1.5f);
+            }
+        }
+
+        if (_hover && _enabledEx)
+        {
+            using var ov = new SolidBrush(Color.FromArgb(_variant == ButtonVariant.Primary ? 28 : 16, 255, 255, 255));
+            g.FillPath(ov, Theme.RoundRect(r, _radius));
+        }
+        if (_pressed && _enabledEx)
+        {
+            using var ov = new SolidBrush(Color.FromArgb(40, 0, 0, 0));
+            g.FillPath(ov, Theme.RoundRect(r, _radius));
+        }
 
         TextRenderer.DrawText(g, Text ?? string.Empty, Font, ClientRectangle, fg,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter

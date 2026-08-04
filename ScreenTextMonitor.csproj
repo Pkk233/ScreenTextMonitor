@@ -18,6 +18,14 @@
     <NoWarn>$(NoWarn);CA1416;SYSLIB0014</NoWarn>
   </PropertyGroup>
 
+  <!-- landing/ 是独立的 Vite + WebView2 包装子项目，不并入主工程编译，否则会
+       误编其 .cs 并引发 WebView2 引用缺失 / AssemblyInfo 重复等错误。 -->
+  <ItemGroup>
+    <Compile Remove="landing\**\*.cs" />
+    <EmbeddedResource Remove="landing\**\*" />
+    <None Remove="landing\**\*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.27.0" />
     <PackageReference Include="System.Speech" Version="8.0.0" />

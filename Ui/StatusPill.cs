@@ -41,7 +41,8 @@ public class StatusPill : Control
         if (Width <= 1) return;
 
         var (fg, bg) = Map.TryGetValue(_status, out var v) ? v : Map["stopped"];
-        Theme.DrawRoundRect(g, new RectangleF(1, 1, Width - 2, Height - 2), _radius, bg, bg);
+        Theme.FillRoundRectGradient(g, new RectangleF(1, 1, Width - 2, Height - 2), _radius, bg, bg);
+        using (var pen = new Pen(Theme.BorderLo, 1)) g.DrawPath(pen, Theme.RoundRect(new RectangleF(1, 1, Width - 2, Height - 2), _radius));
 
         using (var dot = new SolidBrush(fg))
         {

@@ -62,11 +62,16 @@ public class RoundedSwitch : Control
         int top = (Height - _trackH) / 2;
         Color track = _checked ? Theme.Accent : Theme.TrackOff;
         var r = new RectangleF(1, top + 1, _trackW - 2, _trackH - 2);
-        Theme.DrawRoundRect(g, r, _trackH / 2f, track, track);
+        Theme.FillRoundRectGradient(g, r, _trackH / 2f,
+            _checked ? Theme.AccentTop : Theme.TrackOff,
+            _checked ? Theme.AccentBot : Theme.TrackOff);
+        using (var pen = new Pen(Theme.BorderLo, 1)) g.DrawPath(pen, Theme.RoundRect(r, _trackH / 2f));
 
         float kx = _checked ? _trackW - _trackH / 2f - 2 : _trackH / 2f + 2;
         float ky = top + _trackH / 2f;
         float kr = _trackH / 2f - 3;
+        using (var sb = new SolidBrush(Color.FromArgb(60, Theme.Shadow)))
+            g.FillEllipse(sb, kx - kr + 1, ky - kr + 2, kr * 2, kr * 2);
         using (var wb = new SolidBrush(Color.White))
         {
             g.FillEllipse(wb, kx - kr, ky - kr, kr * 2, kr * 2);

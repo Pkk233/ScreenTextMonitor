@@ -319,3 +319,51 @@ public static class Lbl
         return l;
     }
 }
+
+/// <summary>
+/// 双列容器：左列（配置，超高内部滚动）+ 右列（状态+日志，用 Dock 让日志撑满剩余高度）。
+/// 整体填满父容器（Dock.Fill），两列并排且各自撑满全高；宽度变化时重新分配两列宽度。
+/// </summary>
+public class TwoColPanel : BufferedPanel
+{
+    private readonly int _gap;
+    public ScrollStack LeftCol { get; }
+    public Panel RightCol { get; }
+
+    public TwoColPanel(int gap = 12)
+    {
+        _gap = gap;
+        BackColor = Theme.Bg;
+        LeftCol = new ScrollStack
+        {
+            BackColor = Theme.Bg,
+            Margin = Padding.Empty,
+            Padding = new Padding(0, 4, 0, 4)
+        };
+        RightCol = new Panel
+        {
+            BackColor = Theme.Bg,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
+        };
+        Controls.Add(LeftCol);
+        Controls.Add(RightCol);
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        Relayout();
+    }
+
+    /// <summary>两列并排、各自撑满整个内容高度。窗口压窄时仍并排（最小宽度 860 保证可读）。</summary>
+    private void Relayout()
+    {
+        int w = ClientSize.Width;
+        int h = ClientSize.Height;
+        if (w <= 0 || h <= 0) return;
+        int half = (w - _gap) / 2;
+        LeftCol.SetBounds(0, 0, half, h);
+        RightCol.SetBounds(half + _gap, 0, w - half - _gap, h);
+    }
+}

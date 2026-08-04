@@ -79,17 +79,20 @@ public class RoundedSlider : Control
 
         float cy = Height / 2f;
         float th = _trackH;
-        Theme.DrawRoundRect(g, new RectangleF(_pad, cy - th / 2, Width - 2 * _pad, th),
-            th / 2f, Theme.Border, Theme.Border);
+        var trkR = new RectangleF(_pad, cy - th / 2, Width - 2 * _pad, th);
+        Theme.FillRoundRectGradient(g, trkR, th / 2f, Theme.TrackBg, Theme.TrackBg);
+        using (var pen = new Pen(Theme.BorderLo, 1)) g.DrawPath(pen, Theme.RoundRect(trkR, th / 2f));
 
         float vx = ValueToX(_value);
-        if (vx > _pad)
+        if (vx > _pad + 1)
         {
-            Theme.DrawRoundRect(g, new RectangleF(_pad, cy - th / 2, vx - _pad, th),
-                th / 2f, Theme.Accent, Theme.Accent);
+            var fillR = new RectangleF(_pad, cy - th / 2, vx - _pad, th);
+            Theme.FillRoundRectGradient(g, fillR, th / 2f, Theme.AccentTop, Theme.AccentBot);
         }
 
         float r = th + 4;
+        using (var sb = new SolidBrush(Color.FromArgb(70, Theme.Shadow)))
+            g.FillEllipse(sb, vx - r + 1, cy - r + 2, r * 2, r * 2);
         using (var kb = new SolidBrush(Theme.Accent))
         {
             g.FillEllipse(kb, vx - r, cy - r, r * 2, r * 2);

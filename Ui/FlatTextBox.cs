@@ -57,9 +57,28 @@ public class FlatTextBox : BufferedPanel
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
+        Theme.Smooth(g);
         using (var b = new SolidBrush(Theme.Surface)) g.FillRectangle(b, ClientRectangle);
-        using var pen = new Pen(_focused ? Theme.Accent : Theme.Border, 1);
-        g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+        float radius = 7;
+        var r = new RectangleF(1, 1, Width - 2, Height - 2);
+        Theme.FillRoundRectGradient(g, r, radius, Theme.Surface, Theme.SurfaceBot);
+        if (_focused)
+        {
+            using (var penLo = new Pen(Theme.AccentEdge, 1)) g.DrawPath(penLo, Theme.RoundRect(r, radius));
+            var rIn = new RectangleF(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
+            using (var penHi = new Pen(Color.FromArgb(190, 255, 255, 255), 1)) g.DrawPath(penHi, Theme.RoundRect(rIn, radius - 1));
+            if (r.Width > 2 * radius)
+            {
+                using var penTop = new Pen(Color.FromArgb(120, 255, 255, 255), 1);
+                g.DrawLine(penTop, r.X + radius, r.Y + 1.5f, r.X + r.Width - radius, r.Y + 1.5f);
+            }
+        }
+        else
+        {
+            using (var penLo = new Pen(Theme.BorderLo, 1)) g.DrawPath(penLo, Theme.RoundRect(r, radius));
+            var rIn = new RectangleF(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
+            using (var penHi = new Pen(Theme.BorderHi, 1)) g.DrawPath(penHi, Theme.RoundRect(rIn, radius - 1));
+        }
     }
 
     protected override void OnMouseDown(MouseEventArgs e)

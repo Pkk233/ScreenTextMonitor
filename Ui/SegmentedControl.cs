@@ -62,8 +62,11 @@ public class SegmentedControl : Control
         using (var b = new SolidBrush(BackColor)) g.FillRectangle(b, ClientRectangle);
         if (Width <= 1) return;
 
-        Theme.DrawRoundRect(g, new RectangleF(1, 1, Width - 2, Height - 2), _radius,
-            Theme.HoverSoft, Theme.Border);
+        var rSeg = new RectangleF(1, 1, Width - 2, Height - 2);
+        Theme.FillRoundRectGradient(g, rSeg, _radius, Theme.HoverSoft, Theme.BorderLo);
+        using (var penLo = new Pen(Theme.BorderLo, 1)) g.DrawPath(penLo, Theme.RoundRect(rSeg, _radius));
+        var rSegIn = new RectangleF(rSeg.X + 1, rSeg.Y + 1, rSeg.Width - 2, rSeg.Height - 2);
+        using (var penHi = new Pen(Theme.BorderHi, 1)) g.DrawPath(penHi, Theme.RoundRect(rSegIn, _radius - 1));
 
         int n = _segments.Length;
         float seg = (float)Width / n;
@@ -76,9 +79,11 @@ public class SegmentedControl : Control
             if (val == _value)
             {
                 const float pad = 3;
-                Theme.DrawRoundRect(g,
-                    new RectangleF(x0 + pad, pad, x1 - x0 - 2 * pad, Height - 2 * pad),
-                    _radius - 2, Theme.Surface, Theme.Border);
+                var segR = new RectangleF(x0 + pad, pad, x1 - x0 - 2 * pad, Height - 2 * pad);
+                Theme.FillRoundRectGradient(g, segR, _radius - 2, Theme.Surface, Theme.SurfaceBot);
+                using (var sLo = new Pen(Theme.BorderLo, 1)) g.DrawPath(sLo, Theme.RoundRect(segR, _radius - 2));
+                var segIn = new RectangleF(segR.X + 1, segR.Y + 1, segR.Width - 2, segR.Height - 2);
+                using (var sHi = new Pen(Theme.BorderHi, 1)) g.DrawPath(sHi, Theme.RoundRect(segIn, _radius - 3));
                 fg = Theme.Accent;
             }
             else

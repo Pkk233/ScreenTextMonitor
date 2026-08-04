@@ -14,11 +14,10 @@ public sealed class MainForm : Form
     private const double IdleBackoffStep = 0.6;// 每次降频叠加的秒数
     private const double IdleBackoffCap = 5.0; // 自动降频后的最大间隔（秒）
 
-    // ---------------- 顶部 / Tab ----------------
-    private HeaderCard _header;
-    private RoundedButton _btnTabRun;
-    private RoundedButton _btnTabSet;
-    private ScrollStack _tabRun;
+    // ---------------- 顶部 / 导航 ----------------
+    private NavRail _rail;
+    private TopBar _topBar;
+    private Panel _tabRun;
     private ScrollStack _tabSet;
 
     // ---------------- 运行 Tab 控件 ----------------
@@ -27,6 +26,7 @@ public sealed class MainForm : Form
     private Label _labelCpu, _labelStats;
     private RoundedProgressBar _cpuBar;
     private LogBox _log;
+    private RoundedCard _logCard;   // 下半边全宽运行日志卡片（高度=内容区一半）
 
     // ---------------- 设置 Tab 控件 ----------------
     private SegmentedControl _segAlert;
@@ -34,7 +34,7 @@ public sealed class MainForm : Form
     private FlatTextBox _entryFreq, _entryDur, _entryAudio, _entryTts;
     private RoundedButton _btnBrowse;
     private RoundedSwitch _swQq, _swSkipStatic, _swSmartSkip, _swPerfMode, _swAutoBackoff;
-    private FlatTextBox _entryQqUrl, _entryQqToken, _entryQqTarget, _entryQqMsg, _entryQqWs;
+    private FlatTextBox _entryQqUrl, _entryQqToken, _entryQqTarget, _entryQqMsg, _entryQqWs, _entryQqCmdStart, _entryQqCmdStop;
     private RoundedSwitch _swQqCtrlLock;
     private QqController _qqCtrl;
     private RoundedSlider _sliderInterval, _sliderDelay, _sliderSens;
@@ -63,8 +63,8 @@ public sealed class MainForm : Form
     public MainForm()
     {
         Text = "屏幕文字监控工具";
-        ClientSize = new Size(620, 840);
-        MinimumSize = new Size(600, 720);
+        ClientSize = new Size(1140, 720);
+        MinimumSize = new Size(860, 560);
         BackColor = Theme.Bg;
         Font = Theme.FontUi;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -91,20 +91,19 @@ public sealed class MainForm : Form
     {
         SuspendLayout();
 
-        // ---- 顶部标题栏（圆角蓝卡 + 状态胶囊）----
-        _header = new HeaderCard("屏幕文字监控工具", "实时检测 · 低占用 · 智能提醒");
-        Controls.Add(_header);
+        // ---- 左侧导航轨（手机 App 横屏：导航轨 + 品牌块 + 状态灯）----
+        _rail = new NavRail();
+        _rail.AddItem("run", "🛰", "运行");
+        _rail.AddItem("set", "⚙️", "设置");
+        _rail.Navigate += (_, key) => SwitchTab(key);
+        Controls.Add(_rail);
 
-        // ---- 圆角 Tab 栏 ----
-        _btnTabRun = new RoundedButton("运行", ButtonVariant.Primary, 40) { AutoWidth = false };
-        _btnTabRun.Command += (_, _) => SwitchTab("run");
-        _btnTabSet = new RoundedButton("设置", ButtonVariant.Secondary, 40) { AutoWidth = false };
-        _btnTabSet.Command += (_, _) => SwitchTab("set");
-        Controls.Add(_btnTabRun);
-        Controls.Add(_btnTabSet);
+        // ---- 顶部应用栏（标题 + 状态胶囊）----
+        _topBar = new TopBar();
+        Controls.Add(_topBar);
 
-        // ---- 两个可滚动内容区 ----
-        _tabRun = new ScrollStack();
+        // ---- 两个内容区：运行页用 Panel（日志撑满剩余高度），设置页可滚动 ----
+        _tabRun = new Panel { BackColor = Theme.Bg };
         _tabSet = new ScrollStack();
         Controls.Add(_tabRun);
         Controls.Add(_tabSet);
@@ -117,10 +116,15 @@ public sealed class MainForm : Form
         LayoutRoot();
     }
 
-    private void BuildRunTab(ScrollStack run)
+    private void BuildRunTab(Panel run)
     {
-        // ==================== 检测区域 ====================
-        var cardRegion = NewCard(run, "检测区域");
+        // ==================== 上半边：双列（左=配置 / 右=状态+控制）====================
+        // 先加 Dock.Fill 的双列面板，再加 Dock.Bottom 的日志卡片，规避 WinForms 停靠顺序陷阱。
+        var two = new TwoColPanel(12) { Dock = DockStyle.Fill };
+        run.Controls.Add(two);
+
+        // ---- 左列：配置 ----
+        var cardRegion = NewCard(two.LeftCol, "检测区域");
         var rowRegion = NewRow(34, Theme.Surface);
         _entryX = NewEntry(56, "38");
         _entryY = NewEntry(56, "1100");
@@ -139,27 +143,22 @@ public sealed class MainForm : Form
                  .Add(_btnSelect, padL: 10);
         cardRegion.Body.Controls.Add(rowRegion);
 
-        // ==================== 目标文字 ====================
-        var cardText = NewCard(run, "目标文字（多个用逗号分隔）");
+        var cardText = NewCard(two.LeftCol, "目标文字（多个用逗号分隔）");
         _entryText = NewEntry(0, "收金,比例");
         cardText.Body.Controls.Add(_entryText);
 
-        // ==================== 控制按钮 ====================
-        var rowCtrl = NewRow(42, Theme.Bg);
-        rowCtrl.Margin = new Padding(0, 5, 0, 0);
-        _btnStart = new RoundedButton("▶ 开始监控", ButtonVariant.Primary);
-        _btnStart.Command += (_, _) => ToggleMonitor();
+        var rowMini = NewRow(42, Theme.Bg);
+        rowMini.Margin = new Padding(0, 5, 0, 0);
         _btnPreview = new RoundedButton("📷 测试截图", ButtonVariant.Secondary);
         _btnPreview.Command += (_, _) => PreviewScreenshot();
         _btnClear = new RoundedButton("清空日志", ButtonVariant.Secondary);
         _btnClear.Command += (_, _) => ClearLog();
-        rowCtrl.Add(_btnStart, padL: 5, padR: 5)
-               .Add(_btnPreview, padL: 5, padR: 5)
-               .Add(_btnClear, right: true, padR: 5);
-        run.Controls.Add(rowCtrl);
+        rowMini.Add(_btnPreview, padL: 5, padR: 5).Add(_btnClear, right: true, padR: 5);
+        two.LeftCol.Controls.Add(rowMini);
 
-        // ==================== 实时监控 ====================
-        var cardMon = NewCard(run, "实时监控");
+        // ---- 右列：状态 + 控制 + 联系 ----
+        var cardMon = NewCard(two.RightCol, "实时监控");
+        cardMon.Dock = DockStyle.Top;
         var rowCpu = NewRow(20, Theme.Surface);
         _labelCpu = Lbl.Make("—", Theme.TextSub);
         _labelCpu.AutoSize = false;
@@ -176,25 +175,43 @@ public sealed class MainForm : Form
         rowStats.Add(_labelStats);
         cardMon.Body.Controls.Add(rowStats);
 
-        // ==================== 日志区域 ====================
-        var cardLog = NewCard(run, "运行日志");
-        _log = new LogBox(170);
-        cardLog.Body.Controls.Add(_log);
+        _btnStart = new RoundedButton("▶ 开始监控", ButtonVariant.Primary, 46) { AutoWidth = false };
+        _btnStart.Margin = new Padding(0, 6, 0, 6);
+        _btnStart.Dock = DockStyle.Top;
+        _btnStart.Command += (_, _) => ToggleMonitor();
+        two.RightCol.Controls.Add(_btnStart);
 
-        // ==================== 联系作者 ====================
         var rowContact = NewRow(36, Theme.Bg);
         rowContact.Margin = new Padding(0, 3, 0, 3);
         _btnQq = new RoundedButton("👉 点击添加QQ好友", ButtonVariant.Secondary, 32);
         _btnQq.Command += (_, _) => OpenQqContact();
         rowContact.Add(Lbl.Make("联系爸爸: ", Theme.Text, bg: Theme.Bg)).Add(_btnQq);
-        run.Controls.Add(rowContact);
+        rowContact.Dock = DockStyle.Bottom;
+        two.RightCol.Controls.Add(rowContact);
+
+        // ==================== 下半边：全宽运行日志（占满内容区下半部分）====================
+        _logCard = NewCard(run, "运行日志", fill: true);
+        _logCard.Dock = DockStyle.Bottom;
+        _log = new LogBox { Dock = DockStyle.Fill };
+        _logCard.Body.Controls.Add(_log);
+        run.SizeChanged += (_, _) => SyncLogHeight(run);
+
+        SyncLogHeight(run);
+    }
+
+    /// <summary>把运行日志卡片高度锁定为内容区的一半（下限 200，避免过矮），实现「占满下半边空间」。</summary>
+    private void SyncLogHeight(Panel run)
+    {
+        if (_logCard is null || run.ClientSize.Height <= 0) return;
+        int want = Math.Max(200, run.ClientSize.Height / 2);
+        if (_logCard.Height != want) _logCard.Height = want;
     }
 
     private void BuildSetTab(ScrollStack setf)
     {
         // ==================== 提醒方式 ====================
         var cardAlert = NewCard(setf, "提醒方式");
-        _alertBody = cardAlert.Body;
+        _alertBody = (StackPanel)cardAlert.Body;
         _segAlert = new SegmentedControl(new[]
         {
             ("系统蜂鸣", "beep"), ("自定义音频", "audio"), ("语音播报", "tts")
@@ -265,7 +282,13 @@ public sealed class MainForm : Form
         _entryQqWs = NewEntry(220, "ws://127.0.0.1:3001");
         cardQq.Body.Controls.Add(QqRow("WS事件地址:", _entryQqWs));
 
-        var ctrlCmdHint = Lbl.Make("QQ 私聊发送「启动检测」启动监控、「关闭检测」关闭监控（任意好友均可控制）", Theme.TextSub);
+        _entryQqCmdStart = NewEntry(180, "启动检测");
+        cardQq.Body.Controls.Add(QqRow("启动命令:", _entryQqCmdStart));
+
+        _entryQqCmdStop = NewEntry(180, "关闭检测");
+        cardQq.Body.Controls.Add(QqRow("关闭命令:", _entryQqCmdStop));
+
+        var ctrlCmdHint = Lbl.Make("QQ 私聊发送上面自定义命令，即可远程启动/关闭监控（任意好友均可控制）", Theme.TextSub);
         ctrlCmdHint.Margin = new Padding(0, 2, 0, 2);
         cardQq.Body.Controls.Add(ctrlCmdHint);
 
@@ -343,9 +366,9 @@ public sealed class MainForm : Form
 
     // ---------------- 构建小工具 ----------------
 
-    private static RoundedCard NewCard(ScrollStack parent, string title)
+    private static RoundedCard NewCard(Control parent, string title, bool fill = false)
     {
-        var card = new RoundedCard(title) { Margin = new Padding(0, 5, 0, 5) };
+        var card = new RoundedCard(title, 14, fill) { Margin = new Padding(0, 5, 0, 5) };
         parent.Controls.Add(card);
         return card;
     }
@@ -401,20 +424,25 @@ public sealed class MainForm : Form
 
     private void LayoutRoot()
     {
-        if (_header is null) return;
-        const int pad = 10;
+        if (_rail is null) return;
         int w = ClientSize.Width;
+        int h = ClientSize.Height;
 
-        _header.SetBounds(pad, pad, Math.Max(10, w - 2 * pad), 72);
+        // 左导航轨：宽窗 92px（带文字），窄窗 72px（仅图标）
+        int railW = w < 860 ? 72 : 92;
+        _rail.SetBounds(0, 0, railW, h);
 
-        int tabY = pad + 72 + 6;
-        int inner = Math.Max(20, w - 2 * pad);
-        int halfW = (inner - 8) / 2;
-        _btnTabRun.SetBounds(pad, tabY, halfW, 40);
-        _btnTabSet.SetBounds(pad + halfW + 8, tabY, inner - halfW - 8, 40);
+        // 内容区：导航轨右侧留出 12px 内边距
+        int contentX = railW;
+        int contentW = Math.Max(20, w - railW);
+        const int pad = 12;
+        const int appBarH = 52;
 
-        int contentY = tabY + 40 + 6;
-        var r = new Rectangle(pad, contentY, inner, Math.Max(20, ClientSize.Height - contentY));
+        _topBar.SetBounds(contentX + pad, pad, contentW - 2 * pad, appBarH);
+
+        int contentY = pad + appBarH + 10;
+        var r = new Rectangle(contentX + pad, contentY,
+            contentW - 2 * pad, Math.Max(20, h - contentY - pad));
         _tabRun.Bounds = r;
         _tabSet.Bounds = r;
     }
@@ -429,15 +457,15 @@ public sealed class MainForm : Form
         {
             _tabSet.Visible = false;
             _tabRun.Visible = true;
-            _btnTabRun.Variant = ButtonVariant.Primary;
-            _btnTabSet.Variant = ButtonVariant.Secondary;
+            _rail.SetActive("run");
+            _topBar.SetTitle("实时监控");
         }
         else
         {
             _tabRun.Visible = false;
             _tabSet.Visible = true;
-            _btnTabSet.Variant = ButtonVariant.Primary;
-            _btnTabRun.Variant = ButtonVariant.Secondary;
+            _rail.SetActive("set");
+            _topBar.SetTitle("设置");
         }
     }
 
@@ -534,6 +562,8 @@ public sealed class MainForm : Form
             QqTarget = _entryQqTarget.Text.Trim(),
             QqMsg = _entryQqMsg.Text.Trim(),
             QqWsUrl = _entryQqWs.Text.Trim(),
+            QqCmdStart = _entryQqCmdStart.Text.Trim(),
+            QqCmdStop = _entryQqCmdStop.Text.Trim(),
             QqCtrlAllowAny = !_swQqCtrlLock.Checked,
         };
         cfg.Save();
@@ -583,6 +613,8 @@ public sealed class MainForm : Form
         _entryQqTarget.Text = cfg.QqTarget;
         _entryQqMsg.Text = cfg.QqMsg;
         _entryQqWs.Text = cfg.QqWsUrl;
+        _entryQqCmdStart.Text = cfg.QqCmdStart;
+        _entryQqCmdStop.Text = cfg.QqCmdStop;
         _swQqCtrlLock.Checked = !cfg.QqCtrlAllowAny;
         _swQq.Checked = cfg.QqEnabled;
     }
@@ -780,7 +812,8 @@ public sealed class MainForm : Form
         catch (Exception ex) { Log($"优先级调整失败（忽略）: {ex.Message}", "gray"); }
 
         _btnStart.SetText("⏹ 停止监控");
-        _header.Pill.SetStatus("running", "运行中");
+        _topBar.Pill.SetStatus("running", "运行中");
+        _rail.SetStatus(true);
 
         Log(new string('=', 40), "bold");
         Log($"开始监控区域: ({cfg.Region.X}, {cfg.Region.Y}, {cfg.Region.W}, {cfg.Region.H})", "green");
@@ -815,7 +848,8 @@ public sealed class MainForm : Form
             Log($"OCR 引擎加载失败: {ex.Message}", "red");
             _monitoring = false;
             _btnStart.SetText("▶ 开始监控");
-            _header.Pill.SetStatus("stopped", "停止");
+            _topBar.Pill.SetStatus("stopped", "停止");
+            _rail.SetStatus(false);
             return;
         }
 
@@ -839,7 +873,8 @@ public sealed class MainForm : Form
         catch (Exception ex) { Log($"优先级还原失败（忽略）: {ex.Message}", "gray"); }
 
         _btnStart.SetText("▶ 开始监控");
-        _header.Pill.SetStatus("stopped", "停止");
+        _topBar.Pill.SetStatus("stopped", "停止");
+        _rail.SetStatus(false);
         Log("监控已停止", "red");
     }
 
@@ -1141,7 +1176,7 @@ public sealed class MainForm : Form
     {
         base.OnShown(e);
         LayoutRoot();
-        _tabRun.PerformStackLayout();
+        _tabRun.PerformLayout();
         _tabSet.PerformStackLayout();
 
         // F3：注册全局滚轮过滤器，让悬停卡片/输入框时也能滚动内容区
@@ -1183,6 +1218,8 @@ public sealed class MainForm : Form
             _entryQqToken.Text.Trim(),
             _entryQqTarget.Text.Trim(),
             !_swQqCtrlLock.Checked,           // allowAny = 未勾选「仅允许授权」
+            _entryQqCmdStart.Text.Trim(),
+            _entryQqCmdStop.Text.Trim(),
             userId => InvokeQqCommand(true, userId),
             userId => InvokeQqCommand(false, userId),
             msg => Log(msg));

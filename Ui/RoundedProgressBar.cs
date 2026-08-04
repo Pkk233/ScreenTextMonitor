@@ -36,8 +36,8 @@ public class RoundedProgressBar : Control
 
         float cy = Height / 2f;
         float th = Height - 2 * _pad;
-        Theme.DrawRoundRect(g, new RectangleF(_pad, cy - th / 2, Width - 2 * _pad, th),
-            th / 2f, Theme.ProgressTrough, Theme.ProgressTrough);
+        var trkR = new RectangleF(_pad, cy - th / 2, Width - 2 * _pad, th);
+        Theme.DrawRoundRect(g, trkR, th / 2f, Theme.ProgressTrough, Theme.BorderLo);
 
         double frac = _max > 0 ? _value / _max : 0;
         float fw = (float)(_pad + frac * (Width - 2 * _pad));

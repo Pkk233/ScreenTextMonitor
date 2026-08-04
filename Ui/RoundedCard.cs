@@ -7,38 +7,62 @@ namespace ScreenTextMonitor.Ui;
 public class RoundedCard : BufferedPanel
 {
     private readonly int _radius;
+    private readonly bool _fill;
     private bool _syncing;
 
-    public StackPanel Body { get; }
+    public Control Body { get; }
 
-    public RoundedCard(string title = "", int radius = 14)
+    /// <param name="fill">true=卡片填满父容器高度，内部 Body 跟随卡片伸缩（用于「运行日志」撑满剩余空间）。</param>
+    public RoundedCard(string title = "", int radius = 14, bool fill = false)
     {
         _radius = radius;
+        _fill = fill;
         BackColor = Theme.Bg;
 
-        Body = new StackPanel
+        if (_fill)
         {
-            BackColor = Theme.Surface,
-            AutoHeight = true,
-            Padding = Padding.Empty
-        };
+            // 填充模式：Body 是普通 Panel，由卡片在尺寸变化时手动定位到内描边区域，
+            // 既保留圆角边框，又让日志区随窗口高度伸缩。
+            Body = new Panel { BackColor = Theme.Surface, Padding = Padding.Empty };
+        }
+        else
+        {
+            Body = new StackPanel
+            {
+                BackColor = Theme.Surface,
+                AutoHeight = true,
+                Padding = Padding.Empty
+            };
+            Body.SizeChanged += (_, _) => SyncHeight();
+        }
         Controls.Add(Body);
 
         if (!string.IsNullOrEmpty(title))
         {
             var lbl = Lbl.Make(title, Theme.Text, Theme.FontUiBold);
             lbl.Margin = new Padding(0, 0, 0, 8);
+            if (_fill) lbl.Dock = DockStyle.Top;
             Body.Controls.Add(lbl);
         }
 
-        Body.SizeChanged += (_, _) => SyncHeight();
-        Height = Body.Height + 2 * _radius;
+        if (!_fill) Height = Body.Height + 2 * _radius;
     }
 
     protected override void OnSizeChanged(EventArgs e)
     {
         base.OnSizeChanged(e);
-        SyncBody();
+        if (_fill)
+        {
+            // 填充模式：Body 跟随卡片内描边区域伸缩，卡片高度由父容器（Dock.Fill）决定。
+            Body.SetBounds(_radius, _radius,
+                Math.Max(0, Width - 2 * _radius),
+                Math.Max(0, Height - 2 * _radius));
+            Body.Invalidate();
+        }
+        else
+        {
+            SyncBody();
+        }
     }
 
     private void SyncBody()
@@ -58,6 +82,7 @@ public class RoundedCard : BufferedPanel
 
     private void SyncHeight()
     {
+        if (_fill) return;
         int want = Body.Height + 2 * _radius;
         if (Height != want) Height = want;
         Invalidate();
@@ -71,9 +96,10 @@ public class RoundedCard : BufferedPanel
         {
             g.FillRectangle(b, ClientRectangle);
         }
-        if (Width <= 1 || Height <= 1) return;
-        Theme.DrawRoundRect(g, new RectangleF(1, 1, Width - 2, Height - 2), _radius,
-            Theme.Surface, Theme.Border);
+        if (Width <= 3 || Height <= 3) return;
+        var r = new RectangleF(2, 2, Width - 4, Height - 4);
+        Theme.DrawSoftShadow(g, r, _radius);
+        Theme.DrawCard(g, r, _radius);
     }
 }
 
@@ -117,8 +143,9 @@ public class HeaderCard : BufferedPanel
         }
         if (Width <= 1 || Height <= 1) return;
 
-        Theme.DrawRoundRect(g, new RectangleF(1, 1, Width - 2, Height - 2), 16,
-            Theme.Accent, Theme.Accent);
+        var rH = new RectangleF(2, 2, Width - 4, Height - 4);
+        Theme.DrawSoftShadow(g, rH, 16);
+        Theme.DrawAccentCard(g, rH, 16);
 
         int x = (int)(Width * 0.03);
         var titleSize = TextRenderer.MeasureText(_title, Theme.FontTitle);
@@ -128,7 +155,7 @@ public class HeaderCard : BufferedPanel
 
         var subSize = TextRenderer.MeasureText(_subtitle, Theme.FontSub);
         int sy = (int)(Height * 0.78) - subSize.Height / 2;
-        TextRenderer.DrawText(g, _subtitle, Theme.FontSub, new Point(x, sy), Theme.AccentSoft,
-            TextFormatFlags.NoPadding);
+        TextRenderer.DrawText(g, _subtitle, Theme.FontSub, new Point(x, sy),
+            Color.FromArgb(225, 255, 255, 255), TextFormatFlags.NoPadding);
     }
 }
