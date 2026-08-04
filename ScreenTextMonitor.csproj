@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -18,8 +18,7 @@
     <NoWarn>$(NoWarn);CA1416;SYSLIB0014</NoWarn>
   </PropertyGroup>
 
-  <!-- landing/ 是独立的 Vite + WebView2 包装子项目，不并入主工程编译，否则会
-       误编其 .cs 并引发 WebView2 引用缺失 / AssemblyInfo 重复等错误。 -->
+  <!-- Exclude the standalone landing/ Vite+WebView2 sub-project -->
   <ItemGroup>
     <Compile Remove="landing\**\*.cs" />
     <EmbeddedResource Remove="landing\**\*" />
@@ -40,8 +39,7 @@
     </None>
   </ItemGroup>
 
-  <!-- F15：RapidOcrNet.targets 默认会把未使用的 v5 模型拷进输出导致膨胀；
-       在其拷贝前清空 @(Models) 即可阻止，不影响自有 v4 det/cls + v6 rec 加载。 -->
+  <!-- Suppress unused RapidOcr v5 model copy to avoid output bloat -->
   <Target Name="_SuppressRapidOcrV5Models" BeforeTargets="CopyModelsBuild;CopyModelsPublish">
     <ItemGroup>
       <Models Remove="@(Models)" />
