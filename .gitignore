@@ -5,6 +5,9 @@ obj/
 # ===== 发布产物（exe 可在本地用 dotnet publish 重新生成） =====
 发布/
 发布_需NET/
+单文件/
+dist_single/
+ScreenTextMonitor.exe
 
 # ===== WorkBuddy 本地记忆与运行产物 =====
 .workbuddy/

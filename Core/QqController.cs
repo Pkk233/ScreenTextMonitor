@@ -161,13 +161,18 @@ public sealed class QqController : IDisposable
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return;
-            if (root.TryGetProperty("post_type", out var pt) && pt.GetString() != "message") return;
-            if (root.TryGetProperty("message_type", out var mt) && mt.GetString() != "private") return;
 
+            string postType = root.TryGetProperty("post_type", out var pt) ? (pt.GetString() ?? "") : "";
+            string msgType = root.TryGetProperty("message_type", out var mt) ? (mt.GetString() ?? "") : "";
             long userId = 0;
             if (root.TryGetProperty("user_id", out var uid)) userId = uid.GetInt64();
-
             var msg = ExtractText(root);
+            if (string.IsNullOrEmpty(msg) && root.TryGetProperty("raw_message", out var rmEl))
+                msg = rmEl.GetString() ?? "";
+            _log($"QQ event: post={postType} type={msgType} user={userId} text='{msg}'");
+
+            if (postType != "" && postType != "message") return;
+            if (msgType != "" && msgType != "private") return;
             if (string.IsNullOrEmpty(msg)) return;
 
             if (!QqCommandParser.IsAuthorized(userId, _authorizedQq, _allowAny))
