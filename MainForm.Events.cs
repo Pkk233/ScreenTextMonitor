@@ -1,4 +1,7 @@
 ﻿using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
 using ScreenTextMonitor.Core;
 using ScreenTextMonitor.Ui;
 
@@ -366,12 +369,45 @@ public sealed partial class MainForm
 
         _trayIcon = new NotifyIcon
         {
-            Icon = this.Icon ?? SystemIcons.Application,
+            Icon = LoadTrayIcon() ?? this.Icon ?? SystemIcons.Application,
             Text = "屏幕文字监控工具",
             ContextMenuStrip = _trayMenu,
             Visible = false
         };
         _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+    }
+
+    private static Icon LoadTrayIcon()
+    {
+        try
+        {
+            string path = Path.Combine(AppConfig.AppDir, "assets", "brand.jpg");
+            if (File.Exists(path))
+            {
+                using var src = (Bitmap)Image.FromFile(path);
+                int side = Math.Min(src.Width, src.Height);
+                int sx = (src.Width - side) / 2;
+                int sy = (src.Height - side) / 2;
+                using var square = new Bitmap(side, side);
+                using (var g = Graphics.FromImage(square))
+                {
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(src, new Rectangle(0, 0, side, side), new Rectangle(sx, sy, side, side), GraphicsUnit.Pixel);
+                }
+                using var bmp = new Bitmap(32, 32);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(square, 0, 0, 32, 32);
+                }
+                return Icon.FromHandle(bmp.GetHicon());
+            }
+        }
+        catch
+        {
+            // 加载失败则回退到程序主图标
+        }
+        return null;
     }
 
     private void MinimizeToTray()

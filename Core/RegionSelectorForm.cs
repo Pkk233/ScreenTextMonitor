@@ -78,10 +78,11 @@ public sealed class RegionSelectorForm : Form
         int y = Math.Min(_start.Y, _current.Y);
         int w = Math.Abs(_current.X - _start.X);
         int h = Math.Abs(_current.Y - _start.Y);
-        using var pen = new Pen(Color.FromArgb(0, 255, 0), 2)
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var pen = new Pen(Color.FromArgb(0, 255, 0), 4)
         {
-            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
-            DashPattern = new[] { 4f, 2f }
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Custom,
+            DashPattern = new[] { 10f, 6f }
         };
         e.Graphics.DrawRectangle(pen, x, y, w, h);
     }

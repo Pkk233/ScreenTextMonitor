@@ -87,16 +87,16 @@ public sealed class QqController : IDisposable
                 var ws = new ClientWebSocket();
                 lock (_wsLock) _ws = ws;
 
-                _log($"Connecting QQ WebSocket: {_wsUrl}");
+                _log($"正在连接 QQ WebSocket: {_wsUrl}");
                 await ws.ConnectAsync(new Uri(url), ct).ConfigureAwait(false);
-                _log("QQ WebSocket connected, listening for private messages");
+                _log("QQ WebSocket 已连接，正在监听私聊消息");
                 await ReceiveLoopAsync(ws, ct).ConfigureAwait(false);
-                _log("QQ WebSocket disconnected");
+                _log("QQ WebSocket 已断开");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
-                _log($"QQ WebSocket error: {ex.Message}");
+                _log($"QQ WebSocket 错误: {ex.Message}");
             }
             finally
             {
@@ -150,7 +150,7 @@ public sealed class QqController : IDisposable
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _log($"QQ WebSocket receive error: {ex.Message}");
+            _log($"QQ WebSocket 接收错误: {ex.Message}");
         }
     }
 
@@ -169,7 +169,7 @@ public sealed class QqController : IDisposable
             var msg = ExtractText(root);
             if (string.IsNullOrEmpty(msg) && root.TryGetProperty("raw_message", out var rmEl))
                 msg = rmEl.GetString() ?? "";
-            _log($"QQ event: post={postType} type={msgType} user={userId} text='{msg}'");
+            _log($"QQ 事件: 上报类型={postType} 消息类型={msgType} 用户={userId} 文本='{msg}'");
 
             if (postType != "" && postType != "message") return;
             if (msgType != "" && msgType != "private") return;
@@ -177,25 +177,25 @@ public sealed class QqController : IDisposable
 
             if (!QqCommandParser.IsAuthorized(userId, _authorizedQq, _allowAny))
             {
-                _log($"QQ command rejected: sender {userId} not authorized");
+                _log($"QQ 命令被拒绝: 发送者 {userId} 未授权");
                 return;
             }
 
             var cmd = QqCommandParser.Parse(msg, _cmdStart, _cmdStop);
             if (cmd == QqCommand.Start)
             {
-                _log($"QQ command: start detection (from {userId})");
+                _log($"QQ 命令: 开始监控（来自 {userId}）");
                 _onStart?.Invoke(userId);
             }
             else if (cmd == QqCommand.Stop)
             {
-                _log($"QQ command: stop detection (from {userId})");
+                _log($"QQ 命令: 停止监控（来自 {userId}）");
                 _onStop?.Invoke(userId);
             }
         }
         catch (Exception ex)
         {
-            _log($"QQ event parse error: {ex.Message}");
+            _log($"QQ 事件解析错误: {ex.Message}");
         }
     }
 
