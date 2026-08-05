@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Threading;
 
 namespace ScreenTextMonitor.Core;
 
@@ -42,7 +43,7 @@ public sealed class SceneMonitor : IDisposable
     private const double IdleBackoffStep = 0.6;
     private const double IdleBackoffCap = 5.0;
 
-    private readonly MonitorConfig _cfg;
+    private MonitorConfig _cfg;
     private readonly CancellationTokenSource _cts = new();
     private readonly GrayThumbCalc _thumbCalc = new(ChangeThumbW);
 
@@ -59,6 +60,9 @@ public sealed class SceneMonitor : IDisposable
     private readonly Func<MonitorConfig, OcrEngine> _engineFactory;
 
     public bool IsRunning => _thread?.IsAlive == true;
+
+    /// <summary>Hot-swap the active config while a session is running; takes effect on the next loop iteration.</summary>
+    public void UpdateConfig(MonitorConfig config) => Volatile.Write(ref _cfg, config);
 
     public SceneMonitor(
         MonitorConfig config,
@@ -109,13 +113,6 @@ public sealed class SceneMonitor : IDisposable
     private void Run()
     {
         var ct = _cts.Token;
-        var targets = _cfg.Targets;
-        double baseInterval = Math.Max(0.3, _cfg.Interval);
-        bool skipStatic = _cfg.SkipStatic;
-        bool smartSkip = _cfg.SmartSkip;
-        bool perfMode = _cfg.PerfMode;
-        bool autoBackoff = _cfg.AutoBackoff;
-        string qqMsgTpl = string.IsNullOrEmpty(_cfg.QqMsg) ? "【警报】已检测到目标：{target}" : _cfg.QqMsg;
 
         int ocrCount = 0, skipCount = 0, idleStreak = 0;
         _prevSmall = null;
@@ -124,13 +121,22 @@ public sealed class SceneMonitor : IDisposable
 
         while (!ct.IsCancellationRequested)
         {
+            var cfg = Volatile.Read(ref _cfg);
+            var targets = cfg.Targets;
+            double baseInterval = Math.Max(0.3, cfg.Interval);
+            bool skipStatic = cfg.SkipStatic;
+            bool smartSkip = cfg.SmartSkip;
+            bool perfMode = cfg.PerfMode;
+            bool autoBackoff = cfg.AutoBackoff;
+            string qqMsgTpl = string.IsNullOrEmpty(cfg.QqMsg) ? "【警报】已检测到目标：{target}" : cfg.QqMsg;
+
             Bitmap screenshot = null;
             Bitmap ocrInput = null;
             bool wasResized = false;
 
             try
             {
-                screenshot = ScreenCapture.Grab(_cfg.RegionX, _cfg.RegionY, _cfg.RegionW, _cfg.RegionH);
+                screenshot = ScreenCapture.Grab(cfg.RegionX, cfg.RegionY, cfg.RegionW, cfg.RegionH);
 
                 // ---- Change detection via grayscale thumbnail diff ----
                 int thumbH = _thumbCalc.Compute(screenshot);
@@ -145,7 +151,7 @@ public sealed class SceneMonitor : IDisposable
 
                 double elapsed = _sw.Elapsed.TotalSeconds;
                 bool isStatic = diff < ChangeThreshold;
-                bool forceOcr = (elapsed - _lastForceOcr) >= _cfg.ForceOcrIdle;
+                bool forceOcr = (elapsed - _lastForceOcr) >= cfg.ForceOcrIdle;
 
                 if (skipStatic && isStatic && !forceOcr)
                 {
@@ -199,7 +205,7 @@ public sealed class SceneMonitor : IDisposable
                 {
                     string matchedTarget = targets.FirstOrDefault(t => ocrResult.AllText.Contains(t, StringComparison.Ordinal)) ?? targets[0];
                     _log($"【匹配】检测到目标文字: {matchedTarget} (OCR耗时 {ocrResult.Elapsed:F1}s)", "green");
-                    FireAlert(screenshot, qqMsgTpl, matchedTarget);
+                    FireAlert(screenshot, qqMsgTpl, matchedTarget, cfg);
                     idleStreak = 0;
                 }
                 else
@@ -237,28 +243,28 @@ public sealed class SceneMonitor : IDisposable
         }
     }
 
-    private void FireAlert(Bitmap screenshot, string qqMsgTpl, string matchedTarget)
+    private void FireAlert(Bitmap screenshot, string qqMsgTpl, string matchedTarget, MonitorConfig cfg)
     {
         try
         {
-            switch (_cfg.AlertMode)
+            switch (cfg.AlertMode)
             {
                 case "beep":
-                    Alerts.Beep(_cfg.Freq, _cfg.Dur);
+                    Alerts.Beep(cfg.Freq, cfg.Dur);
                     break;
                 case "audio":
-                    Alerts.PlayAudio(_cfg.AudioPath);
+                    Alerts.PlayAudio(cfg.AudioPath);
                     break;
                 default:
-                    Alerts.Speak(_cfg.TtsText);
+                    Alerts.Speak(cfg.TtsText);
                     break;
             }
 
-            if (_cfg.QqEnabled && !string.IsNullOrEmpty(_cfg.QqUrl))
+            if (cfg.QqEnabled && !string.IsNullOrEmpty(cfg.QqUrl))
             {
                 string msg = qqMsgTpl.Replace("{target}", matchedTarget);
                 _ = Task.Run(() => QqNotifier.SendPrivateAsync(
-                    _cfg.QqUrl, _cfg.QqToken, _cfg.QqTarget, msg, screenshot));
+                    cfg.QqUrl, cfg.QqToken, cfg.QqTarget, msg, screenshot));
             }
         }
         catch (Exception ex)

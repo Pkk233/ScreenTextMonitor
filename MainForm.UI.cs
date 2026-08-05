@@ -247,6 +247,57 @@ public sealed partial class MainForm
         cardQqCtrl.Body.Controls.Add(QqRow("启动命令:", _entryQqCmdStart));
         _entryQqCmdStop = NewEntry(0, "关闭检测");
         cardQqCtrl.Body.Controls.Add(QqRow("关闭命令:", _entryQqCmdStop));
+
+        WireLiveConfig();
+    }
+
+    /// <summary>
+    /// Bind Change/Text/Value events on every config control so edits are saved
+    /// immediately and (while monitoring) pushed live into the running session.
+    /// QQ connection params reconnect; QQ send params and all detection params hot-swap.
+    /// </summary>
+    private void WireLiveConfig()
+    {
+        // ---- Run tab: region & target text ----
+        _entryX.TextChanged += (_, _) => OnConfigChanged();
+        _entryY.TextChanged += (_, _) => OnConfigChanged();
+        _entryW.TextChanged += (_, _) => OnConfigChanged();
+        _entryH.TextChanged += (_, _) => OnConfigChanged();
+        _entryText.TextChanged += (_, _) => OnConfigChanged();
+
+        // ---- Alert settings ----
+        _segAlert.SelectionChanged += (_, _) => OnConfigChanged();
+        _entryFreq.TextChanged += (_, _) => OnConfigChanged();
+        _entryDur.TextChanged += (_, _) => OnConfigChanged();
+        _entryAudio.TextChanged += (_, _) => OnConfigChanged();
+        _entryTts.TextChanged += (_, _) => OnConfigChanged();
+
+        // ---- Detection sliders (refresh label + live apply) ----
+        _sliderInterval.ValueChanged += (_, _) => { OnSliderChange(); OnConfigChanged(); };
+        _sliderDelay.ValueChanged += (_, _) => { OnDelayChange(); OnConfigChanged(); };
+        _sliderSens.ValueChanged += (_, _) => { OnSensChange(); OnConfigChanged(); };
+
+        // ---- Performance switches ----
+        _swSkipStatic.CheckedChanged += (_, _) => OnConfigChanged();
+        _swSmartSkip.CheckedChanged += (_, _) => OnConfigChanged();
+        _swPerfMode.CheckedChanged += (_, _) => OnConfigChanged();
+        _swAutoBackoff.CheckedChanged += (_, _) => OnConfigChanged();
+
+        // ---- Close behavior ----
+        _segClose.SelectionChanged += (_, _) => OnConfigChanged();
+
+        // ---- QQ notification send params (live-update running monitor; no reconnect) ----
+        _entryQqUrl.TextChanged += (_, _) => OnConfigChanged();
+        _entryQqToken.TextChanged += (_, _) => OnConfigChanged();
+        _entryQqTarget.TextChanged += (_, _) => OnConfigChanged();
+        _entryQqMsg.TextChanged += (_, _) => OnConfigChanged();
+
+        // ---- QQ remote-control connection params (reconnect to apply) ----
+        _swQq.CheckedChanged += (_, _) => OnQqConfigChanged();
+        _swQqCtrlLock.CheckedChanged += (_, _) => OnQqConfigChanged();
+        _entryQqWs.Leave += (_, _) => OnQqConfigChanged();
+        _entryQqCmdStart.Leave += (_, _) => OnQqConfigChanged();
+        _entryQqCmdStop.Leave += (_, _) => OnQqConfigChanged();
     }
 
     // ---------------- UI Helpers ----------------

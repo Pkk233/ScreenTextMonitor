@@ -262,6 +262,32 @@ public sealed partial class MainForm
     }
 
     // ==================================================================
+    // Live config apply (settings changes take effect immediately)
+    // ==================================================================
+
+    private void OnConfigChanged()
+    {
+        SaveConfig();
+        if (_monitor?.IsRunning != true) return;
+        try
+        {
+            var cfg = GetMonitorConfig();
+            ValidateConfig(cfg);
+            _monitor.UpdateConfig(cfg);
+        }
+        catch
+        {
+            // Invalid input while running: keep the current session; applies once input is valid.
+        }
+    }
+
+    private void OnQqConfigChanged()
+    {
+        SaveConfig();
+        ApplyQqController();
+    }
+
+    // ==================================================================
     // Lifecycle
     // ==================================================================
 
