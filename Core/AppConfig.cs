@@ -39,6 +39,10 @@ public class AppConfig
     [JsonPropertyName("qq_cmd_start")] public string QqCmdStart { get; set; } = "启动检测";
     [JsonPropertyName("qq_cmd_stop")] public string QqCmdStop { get; set; } = "关闭检测";
 
+    // ---- Window close behavior ----
+    // "minimize" = 最小化到托盘（常驻）；"exit" = 退出应用
+    [JsonPropertyName("close_action")] public string CloseAction { get; set; } = "minimize";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,

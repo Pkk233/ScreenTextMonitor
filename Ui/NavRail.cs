@@ -23,6 +23,8 @@ public class NavRail : BufferedPanel
     private int _hover = -1;
     private int _press = -1;
     private bool _running;
+    private Image _brandImage;
+    private string _brandImagePath = "";
 
     public NavRail()
     {
@@ -30,7 +32,41 @@ public class NavRail : BufferedPanel
         Cursor = Cursors.Hand;
     }
 
+    /// <summary>导航轨顶部品牌图片路径；设置后会替换默认渐变方块+文字。</summary>
+    public string BrandImagePath
+    {
+        get => _brandImagePath;
+        set
+        {
+            _brandImagePath = value;
+            LoadBrandImage();
+            Invalidate();
+        }
+    }
+
     public event EventHandler<string> Navigate;
+
+    private void LoadBrandImage()
+    {
+        _brandImage?.Dispose();
+        _brandImage = null;
+        if (string.IsNullOrWhiteSpace(_brandImagePath)) return;
+        try
+        {
+            if (File.Exists(_brandImagePath))
+                _brandImage = Image.FromFile(_brandImagePath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[NavRail] load brand image failed: {ex.Message}");
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _brandImage?.Dispose();
+        base.Dispose(disposing);
+    }
 
     public void AddItem(string key, string icon, string label)
     {
@@ -131,16 +167,41 @@ public class NavRail : BufferedPanel
         int bw = Narrow ? 40 : 44;
         int bx = (Width - bw) / 2;
         var brand = new RectangleF(bx, 14, bw, bw);
-        Theme.DrawAccentCard(g, brand, 12);
-        using (var fBrand = new Font("Segoe UI", Narrow ? 18 : 20, FontStyle.Bold))
-            TextRenderer.DrawText(g, "👁", fBrand, new Rectangle(bx, 14, bw, bw), Color.White,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
-        if (!Narrow)
+        if (_brandImage != null)
         {
-            TextRenderer.DrawText(g, "屏幕监控", Theme.FontSub,
-                new Rectangle(0, 14 + bw + 4, Width, 16), Theme.TextSub,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+            // 等比例缩放并居中绘制品牌图片，圆角裁剪
+            float imgRatio = (float)_brandImage.Width / _brandImage.Height;
+            RectangleF dest;
+            if (imgRatio > 1f)
+            {
+                float h = bw / imgRatio;
+                dest = new RectangleF(bx, 14 + (bw - h) / 2f, bw, h);
+            }
+            else
+            {
+                float w = bw * imgRatio;
+                dest = new RectangleF(bx + (bw - w) / 2f, 14, w, bw);
+            }
+
+            using var clip = Theme.RoundRect(dest, 12);
+            var state = g.Save();
+            g.SetClip(clip, CombineMode.Replace);
+            var oldInterpolation = g.InterpolationMode;
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.DrawImage(_brandImage, dest);
+            g.InterpolationMode = oldInterpolation;
+            g.Restore(state);
+        }
+        else
+        {
+            // 未设置图片时回退到默认渐变方块 + 产品名
+            Theme.DrawAccentCard(g, brand, 12);
+            if (!Narrow)
+            {
+                TextRenderer.DrawText(g, "屏幕监控", Theme.FontSub,
+                    new Rectangle(0, 14 + bw + 4, Width, 16), Theme.TextSub,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+            }
         }
 
         // —— 导航项 ——

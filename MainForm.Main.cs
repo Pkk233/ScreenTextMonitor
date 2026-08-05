@@ -20,6 +20,11 @@ public sealed partial class MainForm : Form
     private Panel _tabRun;
     private ScrollStack _tabSet;
 
+    // ---------------- Tray ----------------
+    private NotifyIcon _trayIcon;
+    private ContextMenuStrip _trayMenu;
+    private bool _forceClosing;
+
     // ---------------- Run Tab Controls ----------------
     private FlatTextBox _entryX, _entryY, _entryW, _entryH, _entryText;
     private RoundedButton _btnSelect, _btnStart, _btnPreview, _btnClear, _btnQq;
@@ -30,6 +35,7 @@ public sealed partial class MainForm : Form
 
     // ---------------- Settings Tab Controls ----------------
     private SegmentedControl _segAlert;
+    private SegmentedControl _segClose;
     private StackPanel _alertBody, _frameBeep, _frameAudio, _frameTts;
     private FlatTextBox _entryFreq, _entryDur, _entryAudio, _entryTts;
     private RoundedButton _btnBrowse;

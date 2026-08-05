@@ -46,6 +46,8 @@ public sealed partial class MainForm
         _entryQqCmdStart.Text = cfg.QqCmdStart;
         _entryQqCmdStop.Text = cfg.QqCmdStop;
 
+        if (_segClose is not null) _segClose.SetValueSilent(cfg.CloseAction);
+
         // Apply QQ controller after loading config
         ApplyQqController();
     }
@@ -81,6 +83,7 @@ public sealed partial class MainForm
             QqCtrlAllowAny = !_swQqCtrlLock.Checked,
             QqCmdStart = _entryQqCmdStart.Text.Trim(),
             QqCmdStop = _entryQqCmdStop.Text.Trim(),
+            CloseAction = _segClose?.Value ?? "minimize",
         };
         cfg.Save();
     }

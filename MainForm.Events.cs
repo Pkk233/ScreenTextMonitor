@@ -279,11 +279,36 @@ public sealed partial class MainForm
         Log("提示: 点击「框选区域」→ 鼠标拖拉选择屏幕区域 → 松开自动填入坐标", "blue");
         Log("提示: 目标文字多个用逗号分隔，如 收金,比例", "blue");
         _cpuTimer.Start();
+        InitTray();
         ApplyQqController();
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (WindowState == FormWindowState.Minimized)
+        {
+            // 最小化直接放到托盘
+            Hide();
+            if (_trayIcon is not null) _trayIcon.Visible = true;
+        }
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        // 点击标题栏关闭按钮（X）：按「关闭窗口时」配置执行，不再每次弹菜单
+        if (e.CloseReason == CloseReason.UserClosing && !_forceClosing)
+        {
+            if (_segClose?.Value != "exit")
+            {
+                // 默认：最小化到托盘（常驻，托盘可恢复）
+                e.Cancel = true;
+                MinimizeToTray();
+                return;
+            }
+            // 配置为「退出应用」：继续执行清理并关闭
+        }
+
         if (_wheelFilter is not null)
         {
             Application.RemoveMessageFilter(_wheelFilter);
@@ -295,6 +320,50 @@ public sealed partial class MainForm
         SaveConfig();
         _qqCtrl?.Dispose();
         _qqCtrl = null;
+        _trayMenu?.Dispose();
+        _trayIcon?.Dispose();
         base.OnFormClosing(e);
+    }
+
+    // ==================================================================
+    // Tray & Close Menu
+    // ==================================================================
+
+    private void InitTray()
+    {
+        if (_trayIcon is not null) return;
+
+        _trayMenu = new ContextMenuStrip();
+        _trayMenu.Items.Add("显示窗口", null, (_, _) => RestoreFromTray());
+        _trayMenu.Items.Add(new ToolStripSeparator());
+        _trayMenu.Items.Add("退出应用", null, (_, _) => ForceClose());
+
+        _trayIcon = new NotifyIcon
+        {
+            Icon = this.Icon ?? SystemIcons.Application,
+            Text = "屏幕文字监控工具",
+            ContextMenuStrip = _trayMenu,
+            Visible = false
+        };
+        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+    }
+
+    private void MinimizeToTray()
+    {
+        WindowState = FormWindowState.Minimized;
+    }
+
+    private void RestoreFromTray()
+    {
+        if (_trayIcon is not null) _trayIcon.Visible = false;
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
+    }
+
+    private void ForceClose()
+    {
+        _forceClosing = true;
+        Close();
     }
 }

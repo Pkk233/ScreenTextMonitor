@@ -14,6 +14,7 @@ public sealed partial class MainForm
         SuspendLayout();
 
         _rail = new NavRail();
+        _rail.BrandImagePath = Path.Combine(AppConfig.AppDir, "assets", "brand.jpg");
         _rail.AddItem("run", "🏶", "运行");
         _rail.AddItem("set", "⚙️", "设置");
         _rail.Navigate += (_, key) => SwitchTab(key);
@@ -47,7 +48,7 @@ public sealed partial class MainForm
         _entryY = NewEntry(56, "1100");
         _entryW = NewEntry(56, "674");
         _entryH = NewEntry(56, "1363");
-        _btnSelect = new RoundedButton("🖱 框选区域", ButtonVariant.Secondary, 30);
+        _btnSelect = new RoundedButton("🖱 框选区域", ButtonVariant.Primary, 34);
         _btnSelect.Command += (_, _) => SelectRegion();
         rowRegion.Add(Lbl.Make("X:"))
                  .Add(_entryX, padL: 2, padR: 2)
@@ -66,9 +67,9 @@ public sealed partial class MainForm
 
         var rowMini = NewRow(42, Theme.Bg);
         rowMini.Margin = new Padding(0, 5, 0, 0);
-        _btnPreview = new RoundedButton("📲 测试截图", ButtonVariant.Secondary);
+        _btnPreview = new RoundedButton("📲 测试截图", ButtonVariant.Primary, 38);
         _btnPreview.Command += (_, _) => PreviewScreenshot();
-        _btnClear = new RoundedButton("清空日志", ButtonVariant.Secondary);
+        _btnClear = new RoundedButton("清空日志", ButtonVariant.Primary, 38);
         _btnClear.Command += (_, _) => ClearLog();
         rowMini.Add(_btnPreview, padL: 5, padR: 5).Add(_btnClear, right: true, padR: 5);
         two.LeftCol.Controls.Add(rowMini);
@@ -169,16 +170,28 @@ public sealed partial class MainForm
 
         // ---- Detection Settings ----
         var cardDetect = NewCard(set, "检测设置");
+
+        var descInterval = Lbl.Make("检测间隔：截图后多久进行下一次 OCR 识别", Theme.TextSub, Theme.FontSub);
+        descInterval.Margin = new Padding(0, 4, 0, 2);
+        cardDetect.Body.Controls.Add(descInterval);
         _sliderInterval = new RoundedSlider(0.5, 10.0, 0.5) { Value = 1.0 };
         cardDetect.Body.Controls.Add(_sliderInterval);
         _lblInterval = Lbl.Make("1.0s", Theme.TextSub);
+        _lblInterval.Margin = new Padding(0, 0, 0, 8);
         cardDetect.Body.Controls.Add(_lblInterval);
 
+        var descDelay = Lbl.Make("提醒间隔：两次警报之间的最小间隔", Theme.TextSub, Theme.FontSub);
+        descDelay.Margin = new Padding(0, 2, 0, 2);
+        cardDetect.Body.Controls.Add(descDelay);
         _sliderDelay = new RoundedSlider(1.0, 10.0, 0.5) { Value = 4.0 };
         cardDetect.Body.Controls.Add(_sliderDelay);
         _lblDelay = Lbl.Make("4.0s", Theme.TextSub);
+        _lblDelay.Margin = new Padding(0, 0, 0, 8);
         cardDetect.Body.Controls.Add(_lblDelay);
 
+        var descSens = Lbl.Make("相似度阈值：判断画面是否静止的灵敏度", Theme.TextSub, Theme.FontSub);
+        descSens.Margin = new Padding(0, 2, 0, 2);
+        cardDetect.Body.Controls.Add(descSens);
         _sliderSens = new RoundedSlider(0.0, 100.0, 1.0) { Value = 33.0 };
         cardDetect.Body.Controls.Add(_sliderSens);
         _lblSens = Lbl.Make("中", Theme.TextSub);
@@ -196,6 +209,19 @@ public sealed partial class MainForm
             Theme.TextSub, wrap: true, width: 520);
         perfHint.Margin = new Padding(0, 6, 0, 0);
         cardPerf.Body.Controls.Add(perfHint);
+
+        // ---- Close Behavior ----
+        var cardClose = NewCard(set, "关闭窗口时");
+        var descClose = Lbl.Make("点击右上角关闭按钮时的默认行为（可在设置中更改，自动保存）", Theme.TextSub, Theme.FontSub);
+        descClose.Margin = new Padding(0, 4, 0, 2);
+        cardClose.Body.Controls.Add(descClose);
+        _segClose = new SegmentedControl(new[]
+        {
+            ("最小化到托盘", "minimize"),
+            ("退出应用", "exit")
+        });
+        _segClose.Margin = new Padding(0, 4, 0, 0);
+        cardClose.Body.Controls.Add(_segClose);
 
         // ---- QQ Notification ----
         var cardQq = NewCard(set, "QQ 通知");

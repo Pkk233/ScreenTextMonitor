@@ -37,6 +37,9 @@
     <None Update="models_ppocrv6\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="assets\brand.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- Suppress unused RapidOcr v5 model copy to avoid output bloat -->
